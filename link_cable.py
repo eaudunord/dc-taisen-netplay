@@ -59,8 +59,18 @@ def setup(com_port = com_port, game = game, ms = ms, dial_string = dial_string, 
     
     while True:
         if not com_port:
-            com_port = input("\nCOM port: ").upper()
+            com_port = input("\nCOM port: ")
+            if "COM" in com_port.upper():
+                com_port = com_port.upper()
+            if com_port.startswith("tty"):
+                com_port = "/dev/" + com_port
+            try:
+                int(com_port)
+                com_port = "COM" + com_port
+            except ValueError:
+                pass
         try:
+            print("Trying " + str(com_port))
             testCon = serial.Serial(com_port,9600)
             testCon.close()
             break
@@ -71,10 +81,7 @@ def setup(com_port = com_port, game = game, ms = ms, dial_string = dial_string, 
     print("\nUsing %s" % com_port)
 
     while True:
-        if game:
-            break
-        game = input("\nGame:\r\n[1] Aero Dancing F\r\n[2] Aero Dancing I\r\n[3] F355\r\n[4] Sega Tetris\r\n[5] Virtual On\r\n[6] Hell Gate\r\n[7] custom\r\n[8] calculated\r\n"
-            )
+        
         if game == '1':
             baud = 28800
         elif game == '2':
@@ -108,9 +115,14 @@ def setup(com_port = com_port, game = game, ms = ms, dial_string = dial_string, 
                 baud = None
                 continue
         else:
-            print("invalid selection")
+            # print("invalid selection")
             game = None
-            continue
+            
+        if game:
+            break
+        game = input("\nGame:\r\n[1] Aero Dancing F\r\n[2] Aero Dancing I\r\n[3] F355\r\n[4] Sega Tetris\r\n[5] Virtual On\r\n[6] Hell Gate\r\n[7] custom\r\n[8] calculated\r\n"
+            )
+        continue
 
 
 
