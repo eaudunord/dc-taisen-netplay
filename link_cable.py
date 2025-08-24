@@ -1,3 +1,5 @@
+#link_version=2025.08.23.2139
+
 import socket
 import time
 import serial
@@ -70,15 +72,15 @@ def setup(com_port = com_port, game = game, ms = ms, dial_string = dial_string, 
             except ValueError:
                 pass
         try:
-            print("Trying " + str(com_port))
+            logger.info("Trying " + str(com_port))
             testCon = serial.Serial(com_port,9600)
             testCon.close()
             break
         except serial.SerialException:
-            print("Invalid COM port")
+            logger.info("Invalid COM port")
             com_port = None
             continue
-    print("\nUsing %s" % com_port)
+    logger.info("Using %s" % com_port)
 
     while True:
         
@@ -99,7 +101,7 @@ def setup(com_port = com_port, game = game, ms = ms, dial_string = dial_string, 
                 baud = int(input("\ncustom baud: "))
                 int(baud)
             except ValueError:
-                print("Invalid selection")
+                logger.info("Invalid selection")
                 game = None
                 baud = None
                 continue
@@ -108,14 +110,14 @@ def setup(com_port = com_port, game = game, ms = ms, dial_string = dial_string, 
                 multiplier = int(input("\nSCBRR2 multiplier: "))
                 int(multiplier)
                 baud = int(round((50*1000000)/(multiplier+1)/32,0))
-                print(baud)
+                logger.info(baud)
             except ValueError:
-                print("Invalid selection")
+                logger.info("Invalid selection")
                 game = None
                 baud = None
                 continue
         else:
-            # print("invalid selection")
+            # logger.info("invalid selection")
             game = None
             
         if game:
@@ -142,7 +144,7 @@ def setup(com_port = com_port, game = game, ms = ms, dial_string = dial_string, 
                         ms = "waiting"
                 else:
                     ms = None
-                    print("Error getting WAN info.")
+                    logger.info("Error getting WAN info.")
             else:
                 matching = None
             if matching:
@@ -160,11 +162,11 @@ def setup(com_port = com_port, game = game, ms = ms, dial_string = dial_string, 
                 ms = "calling"
                 opponent = (dial_string, 21001)
         else:
-            print('Invalid selection')
+            logger.info('Invalid selection')
             ms = None
             continue
 
-    print("setting serial rate to: %s" % baud)
+    logger.info("setting serial rate to: %s" % baud)
     ser = serial.Serial(com_port, baudrate=baud, rtscts=True)
     ser.reset_output_buffer() #flush the serial output buffer. It should be empty, but doesn't hurt.
     ser.reset_input_buffer()
@@ -253,20 +255,20 @@ def serial_exchange(side, state, opponent, ser):
                         continue
                     elif packetSet == b'RESET_COUNT_SHIRO':
                         # If peer reset their tunnel, we need to reset our sequence counter.
-                        print("Packet sequence reset")
+                        logger.info("Packet sequence reset")
                         currentSequence = 0
                         continue
                     elif b'VOOT_SYNC' in packetSet:
-                        print("\r\nVOOT connection attempt. Choose " + packetSet.split(b'VOOT_SYNC')[2].decode() )
+                        logger.info("\r\nVOOT connection attempt. Choose " + packetSet.split(b'VOOT_SYNC')[2].decode() )
                         VOOT_sync = packetSet.split(b'VOOT_SYNC')[1]
                         continue
                     elif packetSet == b'VOOT_RESET':
-                        print("VOOT synced")
+                        logger.info("VOOT synced")
                         VOOT_sync = None
                         continue
                     elif packetSet == b'PONG_SHIRO':
                         if first_run:
-                            print("Connection established. Begin link play\r\n")
+                            logger.info("Connection established. Begin link play\r\n")
                             udp.sendto(b'RESET_COUNT_SHIRO', opponent) 
                             # we know there's a peer because it responded to our ping
                             # tell it to reset its sequence counter
@@ -354,7 +356,7 @@ def serial_exchange(side, state, opponent, ser):
                 ping = time.time()
             raw_input = b''
             if ser.in_waiting > 0:
-                # print(ser.in_waiting)
+                # logger.info(ser.in_waiting)
                 raw_input += ser.read(ser.in_waiting)
             if len(raw_input) > 0 and printout:
                 logger.info(b'serial read: '+ raw_input)
@@ -452,7 +454,7 @@ def serial_exchange(side, state, opponent, ser):
                         if mirror:
                             continue
                 # if len(raw_input) > 0:
-                #     print(raw_input)
+                #     logger.info(raw_input)
                 payload = raw_input
                 seq = str(sequence)
                 if len(payload) > 0:
@@ -468,14 +470,14 @@ def serial_exchange(side, state, opponent, ser):
                                 
                     sequence+=1
             except Exception as e: 
-                print(e)
+                logger.info(e)
                 
                 continue
         try:
             udp.close()
             logger.info("sender stopped")
         except Exception as e:
-            print(e)
+            logger.info(e)
              
     if state == "connecting":
         t1 = threading.Thread(target=listener)
@@ -599,11 +601,11 @@ if __name__ == '__main__':
             state, opponent = initConnection(ms,dial_string)
         else:
             state = "connecting"
-        # print(state,opponent)
+        # logger.info(state,opponent)
         serial_exchange(ms, state, opponent, ser)
     except KeyboardInterrupt:
         state = "netlink_disconnected"
-        print('Interrupted')
+        logger.info('Interrupted')
         time.sleep(4)
         try:
             sys.exit(130)
