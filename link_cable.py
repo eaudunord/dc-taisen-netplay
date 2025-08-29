@@ -155,7 +155,7 @@ class taisenLink():
                             self.ms = "calling"
                         else:
                             if self.udp:
-                                self.udp.shutdown(socket.SHUT_RDWR)
+                                # self.udp.shutdown(socket.SHUT_RDWR)
                                 self.udp.close()
                                 time.sleep(3)
                                 self.udp = None
@@ -225,7 +225,7 @@ class taisenLink():
                 while True:
                     if time.time() - timerStart > 240:
                         if self.udp:
-                            self.udp.shutdown(socket.SHUT_RDWR)
+                            # self.udp.shutdown(socket.SHUT_RDWR)
                             self.udp.close()
                             self.udp = None
                         return ["failed", None]
@@ -518,7 +518,7 @@ class taisenLink():
                 continue
         try:
             time.sleep(2)
-            self.udp.shutdown(socket.SHUT_RDWR)
+            # self.udp.shutdown(socket.SHUT_RDWR)
             self.udp.close()
             self.logger.info("sender stopped")
         except Exception as e:
