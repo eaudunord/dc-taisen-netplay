@@ -43,8 +43,10 @@ class taisenLink():
         self.udp = None
         self.ser = None
         self.alt_timeout = 0.01
-        self.ftdi_latency = 5
+        self.ftdi_latency = 2
         self.state = "starting"
+        self.my_ip = None
+        self.ext_port = None
 
 
 
@@ -146,23 +148,25 @@ class taisenLink():
                 elif self.matching == "1":
                     self.dial_string = "3" + str(self.game)
                     my_ip, ext_port = self.getWanIP(21002)
+                    if my_ip and ext_port:
+                        self.my_ip = my_ip
+                        self.ext_port = ext_port
                     # self.logger.info("My info: " + str((my_ip, ext_port)))
-                    if my_ip:
+                    if self.my_ip:
                         # time.sleep(3)
-                        status, opponent = self.get_match(self.dial_string[-2:], my_ip, ext_port)
+                        status, opponent = self.get_match(self.dial_string[-2:], self.my_ip, self.ext_port)
                         if status:
                             # self.logger.info(opponent)
                             self.ms = "calling"
                         else:
                             if self.udp:
-                                # self.udp.shutdown(socket.SHUT_RDWR)
-                                self.udp.close()
+                                self.close_udp()
                                 time.sleep(3)
-                                self.udp = None
                             self.ms = "waiting"
                     else:
                         self.ms = None
                         self.logger.info("Error getting WAN info.")
+                        continue
                 else:
                     self.matching = None
                 if self.matching:
@@ -185,7 +189,7 @@ class taisenLink():
                 continue
 
         self.logger.info("setting serial rate to: %s" % self.baud)
-        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=False)
+        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=True)
         self.ser.reset_output_buffer() #flush the serial output buffer. It should be empty, but doesn't hurt.
         self.ser.reset_input_buffer()
         self.ser.timeout = None
@@ -195,7 +199,7 @@ class taisenLink():
                 subprocess.check_output([command_str], shell=True)
                 self.logger.info("FTDI Low latency mode set")
             except:
-                self.logger.info("Couldn't set low latency mode. Only supported on FTDI devices")
+                self.logger.info("Latency timer only supported on FTDI devices")
                 pass
             pass
         variables = (
@@ -205,6 +209,8 @@ class taisenLink():
         return variables
 
     def initConnection(self):
+        self.my_ip = None
+        self.ext_port = None
         if len(self.dial_string) > 2:
             opponent = self.dial_string.replace('*','.')
             ip_set = opponent.split('.')
@@ -225,19 +231,20 @@ class taisenLink():
                 while True:
                     if time.time() - timerStart > 240:
                         if self.udp:
-                            # self.udp.shutdown(socket.SHUT_RDWR)
-                            self.udp.close()
-                            self.udp = None
+                            self.close_udp()
                         return ["failed", None]
                         
                     my_ip, ext_port = self.getWanIP(21001)
+                    if my_ip and ext_port:
+                        self.my_ip = my_ip
+                        self.ext_port = ext_port
                     # self.logger.info("My info: " + str((my_ip, ext_port)))
-                    if my_ip:
+                    if self.my_ip:
                         if not registered:
-                            if self.register(self.dial_string[-2:], my_ip, ext_port):
+                            if self.register(self.dial_string[-2:], self.my_ip, self.ext_port):
                                 registered = True
                         elif registered:
-                            status, opponent = self.get_status(self.dial_string[-2:], my_ip)
+                            status, opponent = self.get_status(self.dial_string[-2:], self.my_ip)
                             if status:
                                 self.logger.info("found opponent")
                                 # self.logger.info(opponent)
@@ -518,8 +525,7 @@ class taisenLink():
                 continue
         try:
             time.sleep(2)
-            # self.udp.shutdown(socket.SHUT_RDWR)
-            self.udp.close()
+            self.close_udp()
             self.logger.info("sender stopped")
         except Exception as e:
             self.logger.info(e)
@@ -652,7 +658,14 @@ class taisenLink():
         except AttributeError:
             self.logger.info("Couldn't get WAN information")
             return None, None
+        except KeyError:
+            return None, None
         return external_ip, external_port
+    
+    def close_udp(self):
+        if self.udp:
+            self.udp.close()
+            self.udp = None
 
 if __name__ == '__main__':
     link = taisenLink()
