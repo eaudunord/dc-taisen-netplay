@@ -43,12 +43,10 @@ class taisenLink():
         self.udp = None
         self.ser = None
         self.alt_timeout = 0.01
-        self.ftdi_latency = 2
+        self.ftdi_latency = 1
         self.state = "starting"
         self.my_ip = None
         self.ext_port = None
-
-
 
     def setup(self):
         opponent = None
@@ -67,6 +65,8 @@ class taisenLink():
                 self.baud = int(arg.split("=")[1].strip())
             elif arg.split("=")[0] == "matching":
                 self.matching = arg.split("=")[1].strip()
+            elif arg.split("=")[0] == "ftdi":
+                self.ftdi_latency = int(arg.split("=")[1].strip())
         
         if self.dial_string and self.ms:
             if self.ms == 'calling':
@@ -102,9 +102,9 @@ class taisenLink():
             elif self.game == '2':
                 self.baud = 38400
             elif self.game == '3':
-                self.baud = 230400
+                self.baud = 223214
             elif self.game == '4':
-                self.baud = 14400
+                self.baud = 115200
             elif self.game == '5':
                 self.baud = 260416
             elif self.game == '6':
@@ -129,13 +129,15 @@ class taisenLink():
                     self.game = None
                     self.baud = None
                     continue
+            elif self.game == '9':
+                self.baud = 223214
             else:
                 # self.logger.info("invalid selection")
                 self.game = None
                 
             if self.game:
                 break
-            self.game = input("\nGame:\r\n[1] Aero Dancing F\r\n[2] Aero Dancing I\r\n[3] F355\r\n[4] Sega Tetris\r\n[5] Virtual On\r\n[6] Hell Gate\r\n[7] custom\r\n[8] calculated\r\n"
+            self.game = input("\nGame:\r\n[1] Aero Dancing F\r\n[2] Aero Dancing I\r\n[3] F355\r\n[4] Sega Tetris\r\n[5] Virtual On\r\n[6] Hell Gate\r\n[7] custom\r\n[8] calculated\r\n[9] Maximum Speed\r\n"
                 )
             continue
 
@@ -189,7 +191,7 @@ class taisenLink():
                 continue
 
         self.logger.info("setting serial rate to: %s" % self.baud)
-        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=True)
+        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=False)
         self.ser.reset_output_buffer() #flush the serial output buffer. It should be empty, but doesn't hurt.
         self.ser.reset_input_buffer()
         self.ser.timeout = None
@@ -197,7 +199,7 @@ class taisenLink():
             try:
                 command_str = "sudo bash -c 'echo %s > /sys/bus/usb-serial/devices/%s/latency_timer'" % (self.ftdi_latency, self.com_port.split("/")[-1])
                 subprocess.check_output([command_str], shell=True)
-                self.logger.info("FTDI Low latency mode set")
+                self.logger.info("FTDI latency set to %s" % self.ftdi_latency)
             except:
                 self.logger.info("Latency timer only supported on FTDI devices")
                 pass
@@ -369,7 +371,13 @@ class taisenLink():
                             if self.printout:
                                 self.logger.info(b'net received: '+ toSend)
                             # self.logger.info(b'net received: '+ toSend)
+                            # if self.game == '4':
+                            #     self.ser.send_break(0.001)
+                            if self.game == '4' and self.ser.break_condition:
+                                self.ser.break_condition = False
                             self.ser.write(toSend)
+                            if self.game == '4':
+                                self.ser.break_condition = True
                             if packetNum == 0: # if the first packet was the processed packet,  no need to go through the rest
                                 break
 
@@ -385,12 +393,14 @@ class taisenLink():
         packets = []
         first_run = True
         VOOT = False
-        mirror = False
+        syncing = False
         sync = 0
         oppside = b''
         to_read = 0
 
         if self.game == '5':
+            self.ser.timeout = self.alt_timeout
+        if self.game == '4':
             self.ser.timeout = self.alt_timeout
         
         while(self.state != "netlink_disconnected"):
@@ -406,11 +416,16 @@ class taisenLink():
 
             if self.game == '5':
                 to_read = 14
+            elif self.game == '4':
+                to_read = 17
             else:
                 to_read = self.ser.in_waiting
             if to_read > 0:
                 # self.logger.info(ser.in_waiting)
                 raw_input += self.ser.read(to_read)
+                if self.game =='4':
+                    raw_input = raw_input[:16]
+                    # raw_input = raw_input
             # raw_input += self.ser.read(14)
             # if len(raw_input) > 0 and self.printout:
             # if len(raw_input) > 0:
@@ -449,11 +464,11 @@ class taisenLink():
 
                         elif raw_input == b'\x01\x02\x01\x00\x00\x00\x00\x00\x00':
                             self.ser.write(b'\x01\x02\x01\x00\x00\x00\x00\x00\x00')
-                            mirror = True
+                            syncing = True
                             VOOT = False
                         continue
 
-                    if mirror:
+                    if syncing:
                         if raw_input == b'U': 
                             # We want to send this to the other tunnel to initiate the connection
                             time.sleep(1) # ensure this arrives after the other side has written the seed.
@@ -463,7 +478,7 @@ class taisenLink():
                             else:
                                 self.VOOT_sync = None
                                 sync = 0
-                                mirror = False
+                                syncing = False
                                 self.logger.info("starting tunnel DNA Side")
                         elif raw_input == b'\xaa':
                             # We want to send this to the other tunnel to initiate the connection
@@ -474,7 +489,7 @@ class taisenLink():
                             else:
                                 self.VOOT_sync = None
                                 sync = 0
-                                mirror = False
+                                syncing = False
                                 self.logger.info("starting tunnel RNA Side")
                         elif len(raw_input) == 7:
                             # I'm pretty sure this is related to the random number seed. It's the only part of the handshake that is different each attempt.
@@ -497,11 +512,8 @@ class taisenLink():
                             if self.VOOT_sync:
                                 self.logger.info("Attempting to connect to opponent")
                                 self.ser.write(self.VOOT_sync)
-                        # else:
-                        #     # this is just here to mirror inputs for testing. delete for real play.
-                        #     ser.write(raw_input)
-                        # mirror = False
-                        if mirror:
+                        
+                        if syncing:
                             continue
                 # if len(raw_input) > 0:
                 #     self.logger.info(raw_input)
@@ -512,7 +524,7 @@ class taisenLink():
                     packets.insert(0,(payload+self.dataSplit+seq.encode()))
                     if(len(packets) > 5):
                         packets.pop()
-                        
+
                     for i in range(1): #send the data twice. May help with drops or latency    
                         ready = select.select([],[self.udp],[]) #blocking select  
                         if ready[1]:
