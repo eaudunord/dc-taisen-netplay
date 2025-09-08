@@ -11,6 +11,7 @@ import os
 import requests
 import binascii
 import subprocess
+import errno
 try:
     import stun
 except ImportError:
@@ -86,13 +87,30 @@ class taisenLink():
                     pass
             try:
                 self.logger.info("Trying " + str(self.com_port))
-                testCon = serial.Serial(self.com_port,9600)
+                testCon = serial.Serial(self.com_port, 9600, exclusive=True )
                 testCon.close()
                 break
-            except serial.SerialException:
-                self.logger.info("Invalid COM port")
-                self.com_port = None
-                continue
+            except serial.SerialException as e:
+                if "FileNotFoundError" in str(e.args[0]):
+                    self.logger.info("Invalid COM port")
+                    self.com_port = None
+                    continue
+                elif "PermissionError" in str(e.args[0]):
+                    self.logger.info("COM port in use")
+                    self.com_port = None
+                    continue
+                elif e.args[0] == 2:
+                    self.logger.info("Invalid COM port")
+                    self.com_port = None
+                    continue
+                elif e.args[0] == 11:
+                    self.logger.info("Port in use. Try stopping Dreampi service")
+                    return
+                else:
+                    self.logger.info(e)
+                    self.com_port = None
+                    continue
+
         self.logger.info("Using %s" % self.com_port)
 
         while True:
@@ -191,7 +209,7 @@ class taisenLink():
                 continue
 
         self.logger.info("setting serial rate to: %s" % self.baud)
-        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=False)
+        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=True, exclusive=True)
         self.ser.reset_output_buffer() #flush the serial output buffer. It should be empty, but doesn't hurt.
         self.ser.reset_input_buffer()
         self.ser.timeout = None
@@ -201,7 +219,7 @@ class taisenLink():
                 subprocess.check_output([command_str], shell=True)
                 self.logger.info("FTDI latency set to %s" % self.ftdi_latency)
             except:
-                self.logger.info("Latency timer only supported on FTDI devices")
+                self.logger.info("Ok. Skipping latency timer")
                 pass
             pass
         variables = (
