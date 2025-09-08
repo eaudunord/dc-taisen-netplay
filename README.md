@@ -22,3 +22,5 @@ Supported games:
 
 Unsupported games with link mode:
  * Sega Tetris (JP) 
+ 
+ If you want to use this with Dreampi there is a simple UI available ![here](https://github.com/eaudunord/taisen-web-ui)
