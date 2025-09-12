@@ -48,6 +48,8 @@ class taisenLink():
         self.state = "starting"
         self.my_ip = None
         self.ext_port = None
+        self.max_sync = None
+        self.established = False
 
     def setup(self):
         opponent = None
@@ -104,8 +106,8 @@ class taisenLink():
                     self.com_port = None
                     continue
                 elif e.args[0] == 11:
-                    self.logger.info("Port in use. Try stopping Dreampi service")
-                    return
+                    self.logger.info("Port in use. Try stopping Dreampi service or remove and reinsert USB adapter on Pi and try again")
+                    sys.exit(1)
                 else:
                     self.logger.info(e)
                     self.com_port = None
@@ -216,10 +218,10 @@ class taisenLink():
         if self.osName == "posix":
             try:
                 command_str = "sudo bash -c 'echo %s > /sys/bus/usb-serial/devices/%s/latency_timer'" % (self.ftdi_latency, self.com_port.split("/")[-1])
-                subprocess.check_output([command_str], shell=True)
+                subprocess.check_output([command_str], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
                 self.logger.info("FTDI latency set to %s" % self.ftdi_latency)
             except:
-                self.logger.info("Ok. Skipping latency timer")
+                self.logger.info("Skipping latency setting for non-FTDI device")
                 pass
             pass
         variables = (
@@ -289,7 +291,7 @@ class taisenLink():
         maxPing = 0
         maxJitter = 0
         recoveredCount = 0
-        established = False
+        self.established = False
         while(self.state != "netlink_disconnected"):
             if time.time() - ping >= self.ping_rate:
                 try:
@@ -321,7 +323,7 @@ class taisenLink():
                         continue
                     elif packetSet == b'START':
                         self.logger.info("Connection established. Begin link play")
-                        established = True
+                        self.established = True
                     elif b'VOOT_SYNC' in packetSet:
                         self.logger.info("\r\nVOOT connection attempt. Choose " + packetSet.split(b'VOOT_SYNC')[2].decode() )
                         self.VOOT_sync = packetSet.split(b'VOOT_SYNC')[1]
@@ -331,9 +333,12 @@ class taisenLink():
                         self.logger.info("VOOT synced")
                         self.VOOT_sync = None
                         continue
+                    elif packetSet == b'MAX_SYNC':
+                        self.max_sync = True
+                        self.logger.info("Maximum Speed connection attempt")
                     elif packetSet == b'PONG_SHIRO':
                         # self.logger.info("Received Pong")
-                        if not established:
+                        if not self.established:
                             # self.logger.info("Sending Reset")
                             self.udp.sendto(b'RESET_COUNT_SHIRO', opponent) 
                             # we know there's a peer because it responded to our ping
@@ -436,6 +441,8 @@ class taisenLink():
                 to_read = 14
             elif self.game == '4':
                 to_read = 17
+            elif self.game == '9' and not self.max_sync:
+                to_read = 19
             else:
                 to_read = self.ser.in_waiting
             if to_read > 0:
@@ -535,6 +542,16 @@ class taisenLink():
                             continue
                 # if len(raw_input) > 0:
                 #     self.logger.info(raw_input)
+                if not self.established: # Don't send anything because we don't have two-way communication
+                    continue
+                if self.game == '9' and not self.max_sync and b'MAX' in raw_input: # maximum speed hammers the serial port with connection attempts. Ignore until both sides are ready.
+                    if first_run:
+                        if select.select([],[self.udp],[])[1]: # we are established so tell the other side we want to play Max Speed
+                            self.udp.sendto(b'MAX_SYNC', opponent)
+                        first_run = False
+                        continue
+                    else:
+                        continue
                 payload = raw_input
                 seq = str(sequence)
                 if len(payload) > 0:
@@ -714,6 +731,7 @@ if __name__ == '__main__':
                 os._exit(130)
         else:
             link.serial_exchange(state, opponent)
+            
             
     except KeyboardInterrupt:
         link.state = "netlink_disconnected"
