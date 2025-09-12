@@ -336,6 +336,7 @@ class taisenLink():
                     elif packetSet == b'MAX_SYNC':
                         self.max_sync = True
                         self.logger.info("Maximum Speed connection attempt")
+                        continue
                     elif packetSet == b'PONG_SHIRO':
                         # self.logger.info("Received Pong")
                         if not self.established:
