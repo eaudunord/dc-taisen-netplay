@@ -403,7 +403,7 @@ class taisenLink():
                             # self.logger.info(binascii.hexlify(payload))
                             if self.printout:
                                 self.logger.info(b'net received: '+ toSend)
-                            self.logger.info(b'net received: '+ toSend)
+                            # self.logger.info(b'net received: '+ toSend)
                             # if self.game == '4':
                             #     self.ser.send_break(0.001)
                             if self.game == '4' and self.ser.break_condition:
@@ -554,7 +554,7 @@ class taisenLink():
                 #     self.logger.info(raw_input)
                 if not self.established: # Don't send anything because we don't have two-way communication
                     continue
-                
+
                 if self.game == '9' and b'MAX' in raw_input: # maximum speed hammers the serial port with connection attempts. Ignore until both sides are ready.
                     if first_run:
                         if select.select([],[self.udp],[])[1]: # we are established so tell the other side we want to play Max Speed
