@@ -1,4 +1,4 @@
-#link_version=2025.09.06.1345
+#link_version=2025.09.15.2253
 
 import socket
 import time
@@ -48,8 +48,9 @@ class taisenLink():
         self.state = "starting"
         self.my_ip = None
         self.ext_port = None
-        self.max_sync = None
+        self.max_sync = False
         self.established = False
+        self.tetris_sync = False
 
     def setup(self):
         opponent = None
@@ -292,6 +293,10 @@ class taisenLink():
         maxJitter = 0
         recoveredCount = 0
         self.established = False
+        if self.game == '4':
+            self.ser.break_condition = True
+        
+
         while(self.state != "netlink_disconnected"):
             if time.time() - ping >= self.ping_rate:
                 try:
@@ -336,6 +341,10 @@ class taisenLink():
                     elif packetSet == b'MAX_SYNC':
                         self.max_sync = True
                         self.logger.info("Maximum Speed connection attempt")
+                        continue
+                    elif packetSet == b'TETRIS_SYNC':
+                        self.tetris_sync = True
+                        self.logger.info("Tetris connection attempt")
                         continue
                     elif packetSet == b'PONG_SHIRO':
                         # self.logger.info("Received Pong")
@@ -394,7 +403,7 @@ class taisenLink():
                             # self.logger.info(binascii.hexlify(payload))
                             if self.printout:
                                 self.logger.info(b'net received: '+ toSend)
-                            # self.logger.info(b'net received: '+ toSend)
+                            self.logger.info(b'net received: '+ toSend)
                             # if self.game == '4':
                             #     self.ser.send_break(0.001)
                             if self.game == '4' and self.ser.break_condition:
@@ -545,10 +554,19 @@ class taisenLink():
                 #     self.logger.info(raw_input)
                 if not self.established: # Don't send anything because we don't have two-way communication
                     continue
-                if self.game == '9' and not self.max_sync and b'MAX' in raw_input: # maximum speed hammers the serial port with connection attempts. Ignore until both sides are ready.
+                if self.game == '9' and b'MAX' in raw_input: # maximum speed hammers the serial port with connection attempts. Ignore until both sides are ready.
                     if first_run:
                         if select.select([],[self.udp],[])[1]: # we are established so tell the other side we want to play Max Speed
                             self.udp.sendto(b'MAX_SYNC', opponent)
+                        first_run = False
+                        continue
+                    elif not self.max_sync:
+                        continue
+
+                if self.game == '4' and not self.tetris_sync and len(raw_input) == 16:
+                    if first_run:
+                        if select.select([],[self.udp],[])[1]: # we are established so tell the other side we want to play Max Speed
+                            self.udp.sendto(b'TETRIS_SYNC', opponent)
                         first_run = False
                         continue
                     else:
