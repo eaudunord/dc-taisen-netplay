@@ -554,6 +554,7 @@ class taisenLink():
                 #     self.logger.info(raw_input)
                 if not self.established: # Don't send anything because we don't have two-way communication
                     continue
+                
                 if self.game == '9' and b'MAX' in raw_input: # maximum speed hammers the serial port with connection attempts. Ignore until both sides are ready.
                     if first_run:
                         if select.select([],[self.udp],[])[1]: # we are established so tell the other side we want to play Max Speed
@@ -563,14 +564,15 @@ class taisenLink():
                     elif not self.max_sync:
                         continue
 
-                if self.game == '4' and not self.tetris_sync and len(raw_input) == 16:
+                if self.game == '4' and len(raw_input) == 16:
                     if first_run:
-                        if select.select([],[self.udp],[])[1]: # we are established so tell the other side we want to play Max Speed
+                        if select.select([],[self.udp],[])[1]: # we are established so tell the other side we want to play Tetris
                             self.udp.sendto(b'TETRIS_SYNC', opponent)
                         first_run = False
                         continue
-                    else:
+                    elif not self.tetris_sync:
                         continue
+
                 payload = raw_input
                 seq = str(sequence)
                 if len(payload) > 0:
