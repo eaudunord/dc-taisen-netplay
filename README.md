@@ -9,7 +9,7 @@ Features:
 
 Requirements:
  * Dreamcast console and supported game(s)
- * USB serial adapter see below for more info
+ * USB serial adapter. See below for more info
  * Python installation and this script
  * Someone to play against
 
@@ -18,6 +18,7 @@ Supported games:
  * Aero Dancing I (JP)
  * F355 Challenge (US/JP)
  * Virtual On: Oratorio Tangram (US/JP) - region/release must match when linking
+ * Maximum Speed (Atomiswave to Dreamcast conversion)
  * Hell Gate (Beta) - Works, but game is broken
 
 Unsupported games with link mode:
