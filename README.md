@@ -9,7 +9,7 @@ Features:
 
 Requirements:
  * Dreamcast console and supported game(s)
- * USB "coder's cable" see below for more info
+ * USB serial adapter see below for more info
  * Python installation and this script
  * Someone to play against
 
@@ -33,7 +33,7 @@ Unsupported games with link mode:
  
  Assembly:
  * Attach header row pins to the SD sniffer. Solderless press fit, or friction fit options are available if you can't solder.
- * Connect the appropriate wires from the USB-serial adapter to the corresponding pins using this chart as a guide
+ * Connect the appropriate wires from the USB-serial adapter to the corresponding pins using the chart below as a guide
  * Insert the SD card sniffer fully into the SD card slot on the SD adapter
  * Insert the SD adapter into the Serial port on the Dreamcast console
  ![Screenshot](https://github.com/eaudunord/dc-taisen-netplay/blob/main/ConnectionGuide.PNG?raw=true)
