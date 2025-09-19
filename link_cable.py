@@ -1,4 +1,4 @@
-#link_version=2025.09.18.2133
+#link_version=2025.09.19.0900
 
 import socket
 import time
@@ -431,7 +431,7 @@ class taisenLink():
         oppside = b''
         to_read = 0
 
-        if self.game == '5' or self.game == '4' or self.game == '9':
+        if self.game == '5' or self.game == '4':
             self.ser.timeout = self.alt_timeout
         
         while(self.state != "netlink_disconnected"):
@@ -449,8 +449,8 @@ class taisenLink():
                 to_read = 14
             elif self.game == '4':
                 to_read = 17
-            elif self.game == '9' and not self.max_sync:
-                to_read = 19
+            # elif self.game == '9' and not self.max_sync:
+            #     to_read = 19
             else:
                 to_read = self.ser.in_waiting
             if to_read > 0:
@@ -553,14 +553,16 @@ class taisenLink():
                 if not self.established: # Don't send anything because we don't have two-way communication
                     continue
 
-                if self.game == '9' and b'MAX' in raw_input: # maximum speed hammers the serial port with connection attempts. Ignore until both sides are ready.
-                    if first_run:
+                if self.game == '9' and len(raw_input) > 0: # maximum speed hammers the serial port with connection attempts. Ignore until both sides are ready.
+                    if first_run and b'MAX' in raw_input:
                         if select.select([],[self.udp],[])[1]: # we are established so tell the other side we want to play Max Speed
                             self.udp.sendto(b'MAX_SYNC', opponent)
-                        first_run = False
+                            first_run = False
                         continue
-                    elif not self.max_sync:
+                    elif not self.max_sync: # the other side hasn't sent us a connection attempt yet
                         continue
+                    else:
+                        pass
 
                 if self.game == '4' and len(raw_input) == 16:
                     if first_run:
@@ -578,7 +580,7 @@ class taisenLink():
                 if len(payload) > 0:
                     
                     packets.insert(0,(payload+self.dataSplit+seq.encode()))
-                    if(len(packets) > 5):
+                    if(len(packets) > 3):
                         packets.pop()
 
                     for i in range(1): #send the data twice. May help with drops or latency    
