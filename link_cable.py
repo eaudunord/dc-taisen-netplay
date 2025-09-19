@@ -1,4 +1,4 @@
-#link_version=2025.09.18.2253
+#link_version=2025.09.18.2133
 
 import socket
 import time
@@ -29,7 +29,7 @@ class taisenLink():
     packetSplit = b"<packetSplit>"
     dataSplit = b"<dataSplit>"
 
-    def __init__(self, pinging = True, ping_rate = 3, printout = True):
+    def __init__(self, pinging = True, ping_rate = 3, printout = False):
         # self.ping = time.time()
         self.pinging = pinging
         self.ping_rate = ping_rate
