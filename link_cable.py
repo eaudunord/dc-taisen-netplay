@@ -431,9 +431,7 @@ class taisenLink():
         oppside = b''
         to_read = 0
 
-        if self.game == '5':
-            self.ser.timeout = self.alt_timeout
-        if self.game == '4':
+        if self.game == '5' or self.game == '4' or self.game == '9':
             self.ser.timeout = self.alt_timeout
         
         while(self.state != "netlink_disconnected"):
@@ -574,6 +572,8 @@ class taisenLink():
                         continue
 
                 payload = raw_input
+                if self.printout and len(payload) > 0:
+                    self.logger.info(b'sending: '+payload)
                 seq = str(sequence)
                 if len(payload) > 0:
                     
