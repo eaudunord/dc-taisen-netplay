@@ -1,4 +1,4 @@
-#link_version=2025.09.19.0900
+#link_version=2025.10.09.0900
 
 import socket
 import time
@@ -255,6 +255,7 @@ class taisenLink():
                     if time.time() - timerStart > 240:
                         if self.udp:
                             self.close_udp()
+                        self.logger.info("Timed out waiting for a match")
                         return ["failed", None]
                         
                     my_ip, ext_port = self.getWanIP(21001)
@@ -298,6 +299,10 @@ class taisenLink():
         
 
         while(self.state != "netlink_disconnected"):
+            if time.time() - pong > 90:
+                self.logger.info("No response from peer. Shutting down tunnel")
+                self.state = "netlink_disconnected"
+                break
             if time.time() - ping >= self.ping_rate:
                 try:
                     if select.select([],[self.udp],[],0)[1]:
@@ -430,6 +435,7 @@ class taisenLink():
         sync = 0
         oppside = b''
         to_read = 0
+        send_ct = 1
 
         if self.game == '5' or self.game == '4':
             self.ser.timeout = self.alt_timeout
@@ -583,7 +589,7 @@ class taisenLink():
                     if(len(packets) > 3):
                         packets.pop()
 
-                    for i in range(1): #send the data twice. May help with drops or latency    
+                    for i in range(send_ct): #send the data this many times. May help with drops or latency    
                         ready = select.select([],[self.udp],[]) #blocking select  
                         if ready[1]:
                             self.udp.sendto(self.packetSplit.join(packets), opponent)
@@ -620,10 +626,12 @@ class taisenLink():
 
             t1.start()
             t2.start()
-            while t1.is_alive:
-                t1.join(2)
-            while t2.is_alive:
-                t2.join(2)
+            t1.join()
+            t2.join()
+            # while t1.is_alive:
+            #     t1.join(2)
+            # while t2.is_alive:
+            #     t2.join(2)
 
     def register(self, game_id, ip_address, port):
         params = {"action" : 'wait', 
