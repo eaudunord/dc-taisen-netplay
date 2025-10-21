@@ -212,7 +212,8 @@ class taisenLink():
                 continue
 
         self.logger.info("setting serial rate to: %s" % self.baud)
-        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=True, exclusive=True)
+        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=False, exclusive=True)
+        self.ser.rts = True
         self.ser.reset_output_buffer() #flush the serial output buffer. It should be empty, but doesn't hurt.
         self.ser.reset_input_buffer()
         self.ser.timeout = None
