@@ -1,4 +1,4 @@
-#link_version=2025.10.09.0900
+#link_version=2025.10.21.0900
 
 import socket
 import time
@@ -415,6 +415,7 @@ class taisenLink():
                             if self.game == '4' and self.ser.break_condition:
                                 self.ser.break_condition = False
                             self.ser.write(toSend)
+                            self.ser.flush()
                             if self.game == '4':
                                 self.ser.break_condition = True
                             if packetNum == 0: # if the first packet was the processed packet,  no need to go through the rest
