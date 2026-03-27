@@ -1,4 +1,4 @@
-#link_version=2025.10.21.0900
+#link_version=202603262010
 
 import socket
 import time
@@ -409,13 +409,10 @@ class taisenLink():
                             # self.logger.info(binascii.hexlify(payload))
                             if self.printout:
                                 self.logger.info(b'net received: '+ toSend)
-                            # self.logger.info(b'net received: '+ toSend)
-                            # if self.game == '4':
-                            #     self.ser.send_break(0.001)
                             if self.game == '4' and self.ser.break_condition:
                                 self.ser.break_condition = False
                             self.ser.write(toSend)
-                            self.ser.flush()
+                            # self.ser.flush() Flush bad. Causes latency increase.
                             if self.game == '4':
                                 self.ser.break_condition = True
                             if packetNum == 0: # if the first packet was the processed packet,  no need to go through the rest
@@ -437,40 +434,24 @@ class taisenLink():
         sync = 0
         oppside = b''
         to_read = 0
-        send_ct = 1
+        send_ct = 2
 
         if self.game == '5' or self.game == '4':
             self.ser.timeout = self.alt_timeout
         
         while(self.state != "netlink_disconnected"):
-            # if time.time() - ping >= ping_rate:
-            #     try:
-            #         self.udp.sendto(b'PING_SHIRO', opponent)
-            #         self.logger.info("Sent Ping to: "+str(opponent))
-            #     except ConnectionResetError:
-            #         self.logger.info("Opponent Unreachable")
-            #         pass
-            #     ping = time.time()
             raw_input = b''
 
             if self.game == '5':
                 to_read = 14
             elif self.game == '4':
                 to_read = 17
-            # elif self.game == '9' and not self.max_sync:
-            #     to_read = 19
             else:
                 to_read = self.ser.in_waiting
             if to_read > 0:
-                # self.logger.info(ser.in_waiting)
                 raw_input += self.ser.read(to_read)
                 if self.game =='4':
                     raw_input = raw_input[:16]
-                    # raw_input = raw_input
-            # raw_input += self.ser.read(14)
-            # if len(raw_input) > 0 and self.printout:
-            # if len(raw_input) > 0:
-            #     self.logger.info(b'serial read: '+ raw_input)
             
             try:
                 if len(raw_input) > 0:
@@ -510,7 +491,28 @@ class taisenLink():
                         continue
 
                     if syncing:
-                        if raw_input == b'U': 
+                        if len(raw_input) == 7:
+                            # I'm pretty sure this is related to the random number seed. It's the only part of the handshake that is different each attempt.
+                            # Random selects break if it's not exchanged correctly and it disconnects after 1 round with an error.
+                            # This is also a very timely exchange. If a response is not received very quickly it tries to restart the handshake.
+                            # This is likely where internet play breaks down because the handshake has to be fast. However, if we ignore it, the game will go into a handshake re-establishment loop. 
+                            # That can buy us time to sync up with the other side, get their seed and write it to the serial port on our time.
+                            sync += 1
+                            if sync > 150:
+                                self.ser.write(raw_input)
+                                sync = 0
+                                if select.select([],[self.udp],[])[1]:
+                                    self.udp.sendto(b'VOOT_RESET', opponent)
+                                    self.logger.info('Connection attempt timed out')
+                                VOOT = False
+                                continue
+                            if sync == 1: # if this packet gets dropped, we're in trouble
+                                if select.select([],[self.udp],[])[1]:
+                                    self.udp.sendto(b'VOOT_SYNC'+ raw_input + b'VOOT_SYNC' + oppside, opponent)
+                            if self.VOOT_sync:
+                                self.logger.info("Attempting to connect to opponent")
+                                self.ser.write(self.VOOT_sync)
+                        elif raw_input == b'U': 
                             # We want to send this to the other tunnel to initiate the connection
                             time.sleep(1) # ensure this arrives after the other side has written the seed.
                             # This part of the handshake doesn't need to be fast.
@@ -532,32 +534,10 @@ class taisenLink():
                                 sync = 0
                                 syncing = False
                                 self.logger.info("starting tunnel RNA Side")
-                        elif len(raw_input) == 7:
-                            # I'm pretty sure this is related to the random number seed. It's the only part of the handshake that is different each attempt.
-                            # Random selects break if it's not exchanged correctly and it disconnects after 1 round with an error.
-                            # This is also a very timely exchange. If a response is not received very quickly it tries to restart the handshake.
-                            # This is likely where internet play breaks down because the handshake has to be fast. However, if we ignore it, the game will go into a handshake re-establishment loop. 
-                            # That can buy us time to sync up with the other side, get their seed and write it to the serial port on our time.
-                            sync += 1
-                            if sync > 150:
-                                self.ser.write(raw_input)
-                                sync = 0
-                                if select.select([],[self.udp],[])[1]:
-                                    self.udp.sendto(b'VOOT_RESET', opponent)
-                                    self.logger.info('Connection attempt timed out')
-                                VOOT = False
-                                continue
-                            if sync == 1: # if this packet gets dropped, we're in trouble
-                                if select.select([],[self.udp],[])[1]:
-                                    self.udp.sendto(b'VOOT_SYNC'+ raw_input + b'VOOT_SYNC' + oppside, opponent)
-                            if self.VOOT_sync:
-                                self.logger.info("Attempting to connect to opponent")
-                                self.ser.write(self.VOOT_sync)
-                        
+
                         if syncing:
                             continue
-                # if len(raw_input) > 0:
-                #     self.logger.info(raw_input)
+
                 if not self.established: # Don't send anything because we don't have two-way communication
                     continue
 
