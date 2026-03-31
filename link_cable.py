@@ -1,4 +1,4 @@
-#link_version=202603262010
+#link_version=202603302153
 
 import socket
 import time
@@ -152,13 +152,16 @@ class taisenLink():
                     continue
             elif self.game == '9':
                 self.baud = 223214
+            elif self.game == '10':
+                self.baud = 260416
+                return ("local", "local")
             else:
                 # self.logger.info("invalid selection")
                 self.game = None
                 
             if self.game:
                 break
-            self.game = input("\nGame:\r\n[1] Aero Dancing F\r\n[2] Aero Dancing I\r\n[3] F355\r\n[4] Sega Tetris\r\n[5] Virtual On\r\n[6] Hell Gate\r\n[7] custom\r\n[8] calculated\r\n[9] Maximum Speed\r\n"
+            self.game = input("\nGame:\r\n[1] Aero Dancing F\r\n[2] Aero Dancing I\r\n[3] F355\r\n[4] Sega Tetris\r\n[5] Virtual On\r\n[6] Hell Gate\r\n[7] custom\r\n[8] calculated\r\n[9] Maximum Speed\r\n[10] Local Read Test\r\n"
                 )
             continue
 
@@ -727,12 +730,32 @@ class taisenLink():
             self.udp.close()
             self.udp = None
 
+    def local_test(self):
+        self.logger.info("Initiate a Cable Versus match with Virtual On to begin the test")
+        # self.logger.info("setting serial rate to: %s" % self.baud)
+        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=False, exclusive=True)
+        self.ser.rts = True
+        self.ser.reset_output_buffer() #flush the serial output buffer. It should be empty, but doesn't hurt.
+        self.ser.reset_input_buffer()
+        self.ser.timeout = None
+        while True:
+            new = self.ser.read(1) #should now block until data. Attempt to reduce CPU usage. I don't know if this is better or not
+            # alternatively just check if self.modem._serial.in_waiting is greater than 0
+            raw_input = new + self.ser.read(self.ser.in_waiting)
+            self.logger.info("READ OK")
+            if raw_input == b'\x01':
+                self.logger.info("WRITE OK")
+                self.logger.info("READ AND WRITE CONFIRMED. SERIAL CONNECTION IS OK")
+            self.ser.write(b'SCIXB START')
+
 if __name__ == '__main__':
     link = taisenLink()
     try:
         ms, opponent = link.setup()
         if ms == "waiting":
             state, opponent = link.initConnection()
+        elif ms == "local":
+            link.local_test()
         else:
             state = "connecting"
         # self.logger.info(state,opponent)
