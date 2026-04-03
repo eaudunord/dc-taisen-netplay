@@ -663,6 +663,7 @@ class taisenLink():
             return [False, (None, None)]
 
     def get_match(self, game_id, ip_address, port):
+        self.timed_out(game_id, ip_address)
         params = {"action" : 'match', 
                     "gameID" : game_id, 
                     "client_ip" : ip_address, 
@@ -700,7 +701,7 @@ class taisenLink():
         try:
             r=requests.get(url, params=params, headers=headers)
             r.raise_for_status()
-            self.logger.info("Wait timed out. Deregistered from matching server")
+            self.logger.info("Deregistered from matching server")
         except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
             self.logger.info("Couldn't connect to matching server")
             return False, None
