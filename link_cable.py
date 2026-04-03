@@ -1,4 +1,4 @@
-#link_version=202603302153
+#link_version=202604021951
 
 import socket
 import time
@@ -742,6 +742,7 @@ class taisenLink():
             new = self.ser.read(1) #should now block until data. Attempt to reduce CPU usage. I don't know if this is better or not
             # alternatively just check if self.modem._serial.in_waiting is greater than 0
             raw_input = new + self.ser.read(self.ser.in_waiting)
+            self.logger.info(raw_input)
             self.logger.info("READ OK")
             if raw_input == b'\x01':
                 self.logger.info("WRITE OK")
