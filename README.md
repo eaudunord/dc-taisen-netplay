@@ -44,4 +44,5 @@ Unsupported games with link mode:
  * Connect the appropriate wires from the USB-serial adapter to the corresponding pins using the chart below as a guide
  * Insert the SD card sniffer fully into the SD card slot on the SD adapter
  * Insert the SD adapter into the Serial port on the Dreamcast console
+ * Note: A number of people have reported they need to ground CTS (CLK on the sniffer) to get things to work. If you do this, RTS from the USB adapter isn't needed.
  ![Screenshot](https://github.com/eaudunord/dc-taisen-netplay/blob/main/ConnectionGuide.PNG?raw=true)
