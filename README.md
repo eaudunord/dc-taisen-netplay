@@ -26,6 +26,13 @@ Unsupported games with link mode:
  
  If you want to use this with Dreampi there is a simple UI available https://github.com/eaudunord/taisen-web-ui
  
+ Experimental Flycast compatible mode added (not available in web UI yet). 
+ * VOOT not likely to work. Must be able to port forward
+ * Forward port 21002 for Flycast and 21001 for the host of this script
+ * Choose "Enter IP Address" and enter the Flycast public IP then "Connect to Flycast"
+ * In the Flycast settings enable battle cable and set peer public IP and port to 21001
+ * Set the Flycast local port to 21002
+ 
  The easiest way to get up and running hardware-wise would be to acquire the following:
  * Dreamcast SD Adapter
  * SD card sniffer (micro or full size)

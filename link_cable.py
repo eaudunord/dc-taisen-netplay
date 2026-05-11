@@ -1,4 +1,4 @@
-#link_version=202604021951
+#link_version=202605111437
 
 import socket
 import time
@@ -29,12 +29,13 @@ class taisenLink():
     packetSplit = b"<packetSplit>"
     dataSplit = b"<dataSplit>"
 
-    def __init__(self, pinging = True, ping_rate = 3, printout = False):
+    def __init__(self, pinging = True, ping_rate = 3, printout = False, verbose = False):
         # self.ping = time.time()
         self.pinging = pinging
         self.ping_rate = ping_rate
         self.printout = printout
         self.com_port = None
+        self.verbose = verbose
         self.game = None
         self.baud = None
         self.ms = None
@@ -51,6 +52,24 @@ class taisenLink():
         self.max_sync = False
         self.established = False
         self.tetris_sync = False
+
+        self.logger = logging.getLogger('Tunnel')
+        self.logger.propagate = False
+        level = logging.DEBUG if self.verbose else logging.INFO
+        self.logger.setLevel(level)
+
+        formatter = logging.Formatter(
+            '%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
+            '%Y-%m-%d %H:%M:%S'
+        )
+
+        handler = logging.StreamHandler()
+        handler.setLevel(level)
+        handler.setFormatter(formatter)
+
+        # Prevent duplicate handlers
+        if not self.logger.handlers:
+            self.logger.addHandler(handler)
 
     def setup(self):
         opponent = None
@@ -202,24 +221,29 @@ class taisenLink():
         while True:
             if self.ms:
                 break
-            side = input('\nWait or connect:\n[1] Wait\n[2] Connect\n')
+            side = input('\nWait or connect:\n[1] Wait\n[2] Connect\n[3] Connect to Flycast\n')
             if side == '1' or side =='2':
                 if side == '1':
                     self.ms = "waiting"
                 else:
                     self.ms = "calling"
                     opponent = (self.dial_string, 21001)
+            elif side == '3':
+                self.ms = "flycast"
+                self.logger.info("Set flycast peer port to 21001 and local port to 21002")
+                opponent = (self.dial_string, 21002)
             else:
                 self.logger.info('Invalid selection')
                 self.ms = None
                 continue
 
         self.logger.info("setting serial rate to: %s" % self.baud)
-        self.ser = serial.Serial(self.com_port, baudrate=self.baud, rtscts=False, exclusive=True)
-        self.ser.rts = True
+        self.ser = serial.Serial(self.com_port, baudrate=self.baud, exclusive=True)
         self.ser.reset_output_buffer() #flush the serial output buffer. It should be empty, but doesn't hurt.
         self.ser.reset_input_buffer()
         self.ser.timeout = None
+        time.sleep(2)
+        self.ser.rts = True
         if self.osName == "posix":
             try:
                 command_str = "sudo bash -c 'echo %s > /sys/bus/usb-serial/devices/%s/latency_timer'" % (self.ftdi_latency, self.com_port.split("/")[-1])
@@ -750,14 +774,89 @@ class taisenLink():
                 self.logger.info("READ AND WRITE CONFIRMED. SERIAL CONNECTION IS OK")
             self.ser.write(b'SCIXB START')
 
+    def listener_flycast(self):
+        self.established = False
+    
+        while(self.state != "netlink_disconnected"):
+            
+            ready = select.select([self.udp],[],[],0) #polling select
+            if ready[0]:
+                try:
+                    packetSet = self.udp.recv(1024)
+                    if packetSet.startswith(b'D') and len(packetSet) == 2:
+                        try:
+                            toSend = packetSet[1:]
+                            # self.logger.info(toSend)
+                            self.ser.write(toSend)
+                            # self.ser.flush() Flush bad. Causes latency increase.
+
+                        except IndexError:
+                            continue
+                except ConnectionResetError:
+                    continue
+                    
+        self.logger.info("listener stopped")
+
+    def sender_flycast(self, opponent):
+        while(self.state != "netlink_disconnected"):
+            raw_input = b''
+            to_read = self.ser.in_waiting
+            if to_read > 0:
+                raw_input += self.ser.read(to_read)
+            
+            try:
+                if len(raw_input) > 0:                
+                    for b in map(lambda x: bytes([x]), raw_input):
+                        payload = b'D' + b
+                        self.udp.sendto(payload, opponent)
+                                
+            except Exception as e: 
+                self.logger.info(e)
+                
+                continue
+        try:
+            time.sleep(2)
+            self.close_udp()
+            self.logger.info("sender stopped")
+        except Exception as e:
+            self.logger.info(e)
+
+    def flycast_exchange(self, state, opponent):
+        self.state = state
+        t1 = threading.Thread(target=self.listener_flycast)
+        t2 = threading.Thread(target=self.sender_flycast,args=(opponent,))
+        Port = 21001
+        if not self.udp:
+            self.udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.udp.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, 184)
+            # self.udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # self.udp.setblocking(0)
+            self.udp.bind(('', Port))
+            # self.logger.info("UDP bound to: "+str(Port))
+        self.udp.settimeout(0.0)
+
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        # while t1.is_alive:
+        #     t1.join(2)
+        # while t2.is_alive:
+        #     t2.join(2)
+
+
 if __name__ == '__main__':
     link = taisenLink()
+    state = None
     try:
         ms, opponent = link.setup()
         if ms == "waiting":
             state, opponent = link.initConnection()
         elif ms == "local":
             link.local_test()
+        elif ms == "flycast":
+            link.flycast_exchange("connecting", opponent)
+
         else:
             state = "connecting"
         # self.logger.info(state,opponent)

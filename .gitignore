@@ -3,3 +3,4 @@ __pycache__/
 *.py[cod]
 *.bat
 taisen_log.txt
+*.txt
