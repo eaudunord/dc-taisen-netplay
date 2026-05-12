@@ -1,4 +1,4 @@
-#link_version=202605111437
+#link_version=202605112208
 
 import socket
 import time
@@ -93,7 +93,10 @@ class taisenLink():
         
         if self.dial_string and self.ms:
             if self.ms == 'calling':
-                opponent = (self.dial_string, 21001)                     
+                opponent = (self.dial_string, 21001)
+            elif self.ms == 'flycast':
+                opponent = (self.dial_string, 21002)
+                self.logger.info("Set flycast peer port to 21001 and local port to 21002")                 
         
         while True:
             if not self.com_port:

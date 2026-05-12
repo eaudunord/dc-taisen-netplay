@@ -26,7 +26,7 @@ Unsupported games with link mode:
  
  If you want to use this with Dreampi there is a simple UI available https://github.com/eaudunord/taisen-web-ui
  
- Experimental Flycast compatible mode added (not available in web UI yet). 
+ Experimental Flycast compatible mode added: 
  * VOOT not likely to work. Must be able to port forward
  * Forward port 21002 for Flycast and 21001 for the host of this script
  * Choose "Enter IP Address" and enter the Flycast public IP then "Connect to Flycast"
@@ -44,5 +44,6 @@ Unsupported games with link mode:
  * Connect the appropriate wires from the USB-serial adapter to the corresponding pins using the chart below as a guide
  * Insert the SD card sniffer fully into the SD card slot on the SD adapter
  * Insert the SD adapter into the Serial port on the Dreamcast console
- * Note: A number of people have reported they need to ground CTS (CLK on the sniffer) to get things to work. If you do this, RTS from the USB adapter isn't needed.
+ * Note: A number of people have reported they need to ground CTS (CLK on the sniffer) to get things to work. 
+     * If you do this, RTS from the USB adapter isn't needed.
  ![Screenshot](https://github.com/eaudunord/dc-taisen-netplay/blob/main/ConnectionGuide.PNG?raw=true)
