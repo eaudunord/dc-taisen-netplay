@@ -1,4 +1,4 @@
-#link_version=202605112208
+#link_version=202605112302
 
 import socket
 import time
@@ -12,6 +12,7 @@ import requests
 import binascii
 import subprocess
 import errno
+import struct
 try:
     import stun
 except ImportError:
@@ -789,7 +790,6 @@ class taisenLink():
                     if packetSet.startswith(b'D') and len(packetSet) == 2:
                         try:
                             toSend = packetSet[1:]
-                            # self.logger.info(toSend)
                             self.ser.write(toSend)
                             # self.ser.flush() Flush bad. Causes latency increase.
 
@@ -801,6 +801,7 @@ class taisenLink():
         self.logger.info("listener stopped")
 
     def sender_flycast(self, opponent):
+        # self.logger.info("sender started")
         while(self.state != "netlink_disconnected"):
             raw_input = b''
             to_read = self.ser.in_waiting
@@ -809,8 +810,10 @@ class taisenLink():
             
             try:
                 if len(raw_input) > 0:                
-                    for b in map(lambda x: bytes([x]), raw_input):
-                        payload = b'D' + b
+                    for b in raw_input:
+                        if not isinstance(b, int):
+                            b = ord(b)
+                        payload = b'D' + struct.pack('B', b)
                         self.udp.sendto(payload, opponent)
                                 
             except Exception as e: 
