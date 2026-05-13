@@ -344,7 +344,7 @@ class taisenLink():
                 except ConnectionResetError:
                     # self.logger.info("Opponent Unreachable")
                     pass
-            ready = select.select([self.udp],[],[],0) #polling select
+            ready = select.select([self.udp],[],[],0.001)
             if ready[0]:
                 try:
                     packetSet = self.udp.recv(1024)
@@ -469,20 +469,23 @@ class taisenLink():
 
         if self.game == '5' or self.game == '4':
             self.ser.timeout = self.alt_timeout
+        else:
+            self.ser.timeout = None
         
         while(self.state != "netlink_disconnected"):
             raw_input = b''
 
             if self.game == '5':
                 to_read = 14
+                raw_input += self.ser.read(to_read)
             elif self.game == '4':
                 to_read = 17
-            else:
-                to_read = self.ser.in_waiting
-            if to_read > 0:
                 raw_input += self.ser.read(to_read)
-                if self.game =='4':
-                    raw_input = raw_input[:16]
+                raw_input = raw_input[:16]
+            else:
+                new = self.ser.read(1)
+                to_read = self.ser.in_waiting
+                raw_input += new + self.ser.read(to_read)
             
             try:
                 if len(raw_input) > 0:
@@ -779,53 +782,64 @@ class taisenLink():
             self.ser.write(b'SCIXB START')
 
     def listener_flycast(self):
-        self.established = False
-    
-        while(self.state != "netlink_disconnected"):
-            
-            ready = select.select([self.udp],[],[],0) #polling select
-            if ready[0]:
-                try:
-                    packetSet = self.udp.recv(1024)
-                    if packetSet.startswith(b'D') and len(packetSet) == 2:
-                        try:
-                            toSend = packetSet[1:]
-                            self.ser.write(toSend)
-                            # self.ser.flush() Flush bad. Causes latency increase.
+        buf = b''
+        last_write = time.time()
 
-                        except IndexError:
-                            continue
-                except ConnectionResetError:
-                    continue
-                    
+        while self.state != "netlink_disconnected":
+            try:
+                packetSet = self.udp.recv(1024)
+
+                if packetSet.startswith(b'D') and len(packetSet) == 2:
+                    buf += packetSet[1:]
+
+                    now = time.time()
+
+                    # write when chunk is big enough, or after a very short delay
+                    if len(buf) >= 14 or (now - last_write) >= 0.001:
+                        self.ser.write(buf)
+                        buf = b''
+                        last_write = now
+
+            except socket.error:
+                if buf:
+                    self.ser.write(buf)
+                    buf = b''
+                    last_write = time.time()
+                continue
+
+        if buf:
+            self.ser.write(buf)
+
         self.logger.info("listener stopped")
 
     def sender_flycast(self, opponent):
-        # self.logger.info("sender started")
-        while(self.state != "netlink_disconnected"):
-            raw_input = b''
-            to_read = self.ser.in_waiting
-            if to_read > 0:
-                raw_input += self.ser.read(to_read)
-            
+        self.ser.timeout = None
+        udp_tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp_tx.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, 184)
+
+        while self.state != "netlink_disconnected":
             try:
-                if len(raw_input) > 0:                
-                    for b in raw_input:
-                        if not isinstance(b, int):
-                            b = ord(b)
-                        payload = b'D' + struct.pack('B', b)
-                        self.udp.sendto(payload, opponent)
-                                
-            except Exception as e: 
+                new = self.ser.read(1)
+                if not new:
+                    continue
+
+                waiting = self.ser.in_waiting
+                if waiting > 14:
+                    waiting = 14
+
+                raw_input = new + self.ser.read(waiting)
+
+                for b in raw_input:
+                    if isinstance(b, int):
+                        payload = b'D' + bytes([b])
+                    else:
+                        payload = b'D' + b
+
+                    udp_tx.sendto(payload, opponent)
+                time.sleep(0)
+
+            except Exception as e:
                 self.logger.info(e)
-                
-                continue
-        try:
-            time.sleep(2)
-            self.close_udp()
-            self.logger.info("sender stopped")
-        except Exception as e:
-            self.logger.info(e)
 
     def flycast_exchange(self, state, opponent):
         self.state = state
@@ -839,7 +853,7 @@ class taisenLink():
             # self.udp.setblocking(0)
             self.udp.bind(('', Port))
             # self.logger.info("UDP bound to: "+str(Port))
-        self.udp.settimeout(0.0)
+        self.udp.settimeout(0.01)
 
         t1.start()
         t2.start()
