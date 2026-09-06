@@ -47,3 +47,6 @@ Unsupported games with link mode:
  * Note: A number of people have reported they need to ground CTS (CLK on the sniffer) to get things to work. 
      * If you do this, RTS from the USB adapter isn't needed.
  ![Screenshot](https://github.com/eaudunord/dc-taisen-netplay/blob/main/ConnectionGuide.PNG?raw=true)
+
+If you want to solder directly to a serial port connector, refer to this pinout:
+ ![Screenshot](https://github.com/eaudunord/dc-taisen-netplay/blob/main/DC_SD_Adapter_V2.jpg?raw=true)
